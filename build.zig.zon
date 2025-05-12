@@ -1,12 +1,12 @@
 .{
     .name = .srt_zig,
-    .version = "1.5.3",
+    .version = "1.5.4",
     .fingerprint = 0xa7b5296a00cbd60f,
     .minimum_zig_version = "0.14.0",
     .dependencies = .{
         .srt = .{
-            .url = "https://github.com/Haivision/srt/archive/refs/tags/v1.5.3.tar.gz",
-            .hash = "1220307876d2151e963e5ee06b7b0607453be1dc1539f8c4d8bac85bd8b548ae20f6",
+            .url = "https://github.com/Haivision/srt/archive/refs/tags/v1.5.4.tar.gz",
+            .hash = "1220652c5e252d01ace2d41f45d741470c8b252a6647e30acf1d45c272c6fb143e0e",
         },
         .mbedtls = .{
             .url = "git+https://github.com/allyourcodebase/mbedtls.git#7d862fe61ff2eac37ee54e1e017fc287bed1cd7a",

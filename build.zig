@@ -4,6 +4,7 @@ const Build = std.Build;
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+    const enable_logging = b.option(bool, "enable-logging", "Should logging be enabled") orelse (optimize == .Debug);
 
     const srt_dep = b.dependency("srt", .{});
 
@@ -17,8 +18,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const version_string = "1.5.3";
-    const version = std.SemanticVersion.parse(version_string) catch unreachable;
+    const srt_version_string = "1.5.4";
+    const version = std.SemanticVersion.parse(srt_version_string) catch unreachable;
 
     // TODO:
     // ENABLE_BONDING
@@ -29,7 +30,6 @@ pub fn build(b: *std.Build) void {
     // ENABLE_HAICRYPT_LOGGING
     // ENABLE_HEAVY_LOGGING
     // ENABLE_INET_PTON
-    // ENABLE_LOGGING
     // ENABLE_MONOTONIC_CLOCK
     // ENABLE_STDCXX_SYNC
     // ENABLE_THREAD_CHECK
@@ -44,7 +44,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .link_libc = true,
     });
-    setDefines(b, version_string, haicrypt, target, optimize);
+    setDefines(b, srt_version_string, haicrypt, target, enable_logging);
     haicrypt.linkLibCpp();
     haicrypt.linkLibrary(mbedtls_dep.artifact("mbedtls"));
     haicrypt.installHeader(srt_dep.path("haicrypt/haicrypt.h"), "haicrypt.h");
@@ -79,7 +79,7 @@ pub fn build(b: *std.Build) void {
         .SRT_VERSION_MAJOR = std.fmt.allocPrint(b.allocator, "{}", .{version.major}) catch unreachable,
         .SRT_VERSION_MINOR = std.fmt.allocPrint(b.allocator, "{}", .{version.minor}) catch unreachable,
         .SRT_VERSION_PATCH = std.fmt.allocPrint(b.allocator, "{}", .{version.patch}) catch unreachable,
-        .SRT_VERSION = version_string,
+        .SRT_VERSION = srt_version_string,
         .CI_BUILD_NUMBER_STRING = "0",
     });
 
@@ -91,7 +91,7 @@ pub fn build(b: *std.Build) void {
     });
     srtcore.linkLibCpp();
     srtcore.linkLibrary(haicrypt);
-    setDefines(b, version_string, srtcore, target, optimize);
+    setDefines(b, srt_version_string, srtcore, target, enable_logging);
     srtcore.addIncludePath(version_header.getOutput().dirname());
     srtcore.addIncludePath(srt_dep.path("haicrypt"));
     srtcore.addIncludePath(srt_dep.path("srtcore"));
@@ -159,6 +159,15 @@ pub fn build(b: *std.Build) void {
         },
     });
 
+    if (enable_logging) {
+        srtcore.addCSourceFile(.{
+            .file = srt_dep.path("srtcore/logging.cpp"),
+            .flags = &.{
+                "-fno-sanitize=undefined",
+            },
+        });
+    }
+
     b.installArtifact(srtcore);
 
     const live_transmit = b.addExecutable(.{
@@ -189,7 +198,7 @@ pub fn build(b: *std.Build) void {
     live_transmit.linkLibrary(srtcore);
     live_transmit.addIncludePath(srt_dep.path("apps"));
     live_transmit.addIncludePath(srt_dep.path("srtcore"));
-    setDefines(b, version_string, live_transmit, target, optimize);
+    setDefines(b, srt_version_string, live_transmit, target, enable_logging);
     b.installArtifact(live_transmit);
 
     const file_transmit = b.addExecutable(.{
@@ -222,7 +231,7 @@ pub fn build(b: *std.Build) void {
     file_transmit.addIncludePath(srt_dep.path("apps"));
     file_transmit.addIncludePath(srt_dep.path("srtcore"));
     live_transmit.addIncludePath(srt_dep.path("core"));
-    setDefines(b, version_string, file_transmit, target, optimize);
+    setDefines(b, srt_version_string, file_transmit, target, enable_logging);
     b.installArtifact(file_transmit);
 
     const tests = b.addExecutable(.{
@@ -231,7 +240,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .link_libc = true,
     });
-    setDefines(b, version_string, tests, target, optimize);
+    setDefines(b, srt_version_string, tests, target, enable_logging);
     tests.linkLibCpp();
     tests.linkLibrary(googletest_dep.artifact("gtest"));
     tests.linkLibrary(srtcore);
@@ -283,7 +292,7 @@ fn setDefines(
     version_string: []const u8,
     lib: *Build.Step.Compile,
     target: Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
+    enable_logging: bool,
 ) void {
     switch (target.result.os.tag) {
         .macos => {},
@@ -301,7 +310,7 @@ fn setDefines(
         else => {},
     }
 
-    if (optimize == .Debug) {
+    if (enable_logging) {
         lib.root_module.addCMacro("ENABLE_LOGGING", "1");
     }
     lib.root_module.addCMacro("HAVE_INET_PTON", "1");
